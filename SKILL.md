@@ -1,5 +1,5 @@
 ---
-name: commute-form-editor
+name: skill-commute-form-editor
 description: >
   Edit and fill in Japanese commute route application forms (通勤経路申請書).
   Use this skill whenever the user wants to fill out, update, or edit a 通勤経路申請書 PDF,
