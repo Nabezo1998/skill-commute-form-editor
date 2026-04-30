@@ -88,10 +88,19 @@ pix.save('preview.png')
 
 Use WebSearch and WebFetch to look up current fares:
 
-- **One-way fares** (片道運賃): search `"[出発駅] [到着駅] 運賃"`
+- **One-way fares** (片道運賃): search `"[出発駅] [到着駅] IC運賃"`
 - **Monthly pass** (1ヶ月通勤定期代): search `"[出発駅] [到着駅] 定期券 料金"`
 - ekitan.com is a reliable source for both private rail and JR fares
 - Be aware of JR fare revisions — always verify the fare is current
+
+### Important: Always use IC fares (ICカード運賃)
+
+片道運賃 must be the **IC card fare** (ICカード利用時の運賃), not the paper ticket (きっぷ) fare.
+IC fares are typically 1–10 yen cheaper per trip and are 1-yen unit prices (1円単位).
+
+- For **私鉄** (Tokyu, Odakyu, etc.): search `"[出発駅] [到着駅] IC運賃"` — ekitan.com shows both IC and cash fares
+- For **JR東日本**: the fare was revised on 2026-03-14 (山手線内区間廃止 → 幹線統合); always verify post-revision IC fare explicitly
+- Confirm the IC fare, not the きっぷ運賃, before writing to the form
 
 Calculate totals for all segments.
 
@@ -105,10 +114,32 @@ be drawn directly onto the page at precise coordinates.
 PyMuPDF's `insert_text()` does NOT render Japanese characters reliably on
 existing PDF pages. Always use the TextWriter pattern:
 
+### Critical: Extract the font embedded in the original PDF
+
+When editing existing text (e.g. correcting a fare), **always extract and reuse
+the font already embedded in the PDF** rather than substituting a system font.
+Different Japanese fonts have visibly different glyph shapes — even within the
+"Gothic" family — and a mismatch is immediately obvious to the reader.
+
+```python
+# Identify which font the original text uses (from Phase 2 text extraction):
+#   span['font']  →  e.g. 'Meiryo'
+# Then extract that font's bytes from the PDF:
+fonts = page.get_fonts(full=True)
+for f in fonts:
+    xref, _, _, name, _, _, _ = f[0], *f[1:]
+    if 'Meiryo' in name:           # match the font name from the span
+        font_data = doc.extract_font(f[0])
+        font_bytes = font_data[3]  # index 3 = raw font bytes
+        font = fitz.Font(fontbuffer=font_bytes)
+        break
+```
+
+Only fall back to a system font when the PDF does not embed the font:
+
 ```python
 import platform, os
 
-# Pick Japanese font for the current OS
 def get_japanese_font_path():
     system = platform.system()
     if system == "Windows":
@@ -116,7 +147,8 @@ def get_japanese_font_path():
     elif system == "Darwin":  # macOS
         candidates = ["/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"]
     else:  # Linux
-        candidates = ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"]
+        candidates = ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                      "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf"]
     for p in candidates:
         if os.path.exists(p):
             return p
